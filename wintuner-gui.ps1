@@ -14,22 +14,29 @@ $colorWhite = [System.Drawing.Color]::FromName("White")
 $colorGreen = [System.Drawing.Color]::FromName("Green")
 
 
-# Function to save the package folder to settings file
+# Function to save the current settings to file
 function Save-Settings {
-    param ($packageFolder)
+    param ($usernames, $lastPackageFolder)
+
+    # Save usernames and the last used package folder to settings
     $settings = @{
-        PackageFolder = $packageFolder
+        Usernames = $usernames
+        LastPackageFolder = $lastPackageFolder
     }
+
     $settings | ConvertTo-Json | Set-Content -Path $settingsFile
 }
-
-# Function to load the package folder from settings file
+# Function to load settings from file
 function Load-Settings {
     if (Test-Path $settingsFile) {
         $settings = Get-Content -Path $settingsFile | ConvertFrom-Json
-        return $settings.PackageFolder
+        return $settings
     }
-    return ""
+    # Return default settings if no settings saved
+    return @{
+        Usernames = @()
+        LastPackageFolder = ""
+    }
 }
 
 # Function to automatically select the first search result
@@ -38,7 +45,6 @@ function Select-FirstSearchResult {
         $comboBoxPackages.SelectedIndex = 0  # Automatically select the first item
     }
 }
-
 
 # Function to search Winget packages using winget.run API
 function Search-WingetPackages {
@@ -120,84 +126,6 @@ function Package-App {
     }
 }
 
-
-
-
-
-# Create the form
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "WingetIntune - Package and Publish"
-$form.Size = New-Object System.Drawing.Size(500, 550)
-$form.StartPosition = "CenterScreen"
-
-# Create controls for package search input
-$labelSearch = New-Object System.Windows.Forms.Label
-$labelSearch.Text = "Search Package:"
-$labelSearch.AutoSize = $true
-$labelSearch.Location = New-Object System.Drawing.Point(20, 20)
-$form.Controls.Add($labelSearch)
-
-$textBoxSearch = New-Object System.Windows.Forms.TextBox
-$textBoxSearch.Location = New-Object System.Drawing.Point(120, 20)
-$textBoxSearch.Size = New-Object System.Drawing.Size(250, 20)
-$form.Controls.Add($textBoxSearch)
-
-# Create a button for searching packages
-$buttonSearch = New-Object System.Windows.Forms.Button
-$buttonSearch.Text = "Search"
-$buttonSearch.Location = New-Object System.Drawing.Point(380, 20)
-$form.Controls.Add($buttonSearch)
-
-# Create a combo box to show search results
-$comboBoxPackages = New-Object System.Windows.Forms.ComboBox
-$comboBoxPackages.Location = New-Object System.Drawing.Point(120, 60)
-$comboBoxPackages.Size = New-Object System.Drawing.Size(250, 20)
-$form.Controls.Add($comboBoxPackages)
-
-# Add new category dropdown (for Intune category)
-$labelCategory = New-Object System.Windows.Forms.Label
-$labelCategory.Text = "Category:"
-$labelCategory.AutoSize = $true
-$labelCategory.Location = New-Object System.Drawing.Point(20, 180)
-$form.Controls.Add($labelCategory)
-
-$comboBoxCategory = New-Object System.Windows.Forms.ComboBox
-$comboBoxCategory.Location = New-Object System.Drawing.Point(120, 180)
-$comboBoxCategory.Size = New-Object System.Drawing.Size(250, 20)
-$comboBoxCategory.Items.AddRange(@("Business", "Computerverwaltung", "Datenverwaltung", "Entwicklung & Design", "Fotos und Medien", "Utilities", "Produktivität", "Zusammenarbeit und soziale Netzwerke"))
-$comboBoxCategory.SelectedIndex = 0  # Select the first item by default
-$form.Controls.Add($comboBoxCategory)
-
-
-# Create controls for package folder input
-$labelPackageFolder = New-Object System.Windows.Forms.Label
-$labelPackageFolder.Text = "Package Folder:"
-$labelPackageFolder.AutoSize = $true
-$labelPackageFolder.Location = New-Object System.Drawing.Point(20, 100)
-$form.Controls.Add($labelPackageFolder)
-
-$textBoxPackageFolder = New-Object System.Windows.Forms.TextBox
-$textBoxPackageFolder.Location = New-Object System.Drawing.Point(120, 100)
-$textBoxPackageFolder.Size = New-Object System.Drawing.Size(250, 20)
-$form.Controls.Add($textBoxPackageFolder)
-
-# Load the saved package folder from settings
-$textBoxPackageFolder.Text = Load-Settings
-
-# Create a button for selecting the package folder
-$buttonBrowseFolder = New-Object System.Windows.Forms.Button
-$buttonBrowseFolder.Text = "Browse"
-$buttonBrowseFolder.Location = New-Object System.Drawing.Point(380, 100)
-$buttonBrowseFolder.Add_Click({
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $textBoxPackageFolder.Text = $folderBrowser.SelectedPath
-        # Save the selected package folder to settings
-        Save-Settings $folderBrowser.SelectedPath
-    }
-})
-$form.Controls.Add($buttonBrowseFolder)
-
 # Function to append text to the RichTextBox console output with optional color
 function Append-ConsoleOutput {
     param (
@@ -215,31 +143,112 @@ function Append-ConsoleOutput {
     $richTextBoxConsoleOutput.ScrollToCaret()
 }
 
+# Create the form
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Wintuner.GUI"
+$form.Size = New-Object System.Drawing.Size(500, 600)
+$form.StartPosition = "CenterScreen"
+
+# Create a label and a ComboBox for the username input, now as the first element in the GUI
+$labelUsername = New-Object System.Windows.Forms.Label
+$labelUsername.Text = "Username:"
+$labelUsername.AutoSize = $true
+$labelUsername.Location = New-Object System.Drawing.Point(20, 20)  # Positioning it at the top
+$form.Controls.Add($labelUsername)
+
+$comboBoxUsername = New-Object System.Windows.Forms.ComboBox
+$comboBoxUsername.Location = New-Object System.Drawing.Point(120, 20)  # Corresponding text box position
+$comboBoxUsername.Size = New-Object System.Drawing.Size(250, 20)
+$comboBoxUsername.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDown
+$form.Controls.Add($comboBoxUsername)
+
+# Create controls for package search input
+$labelSearch = New-Object System.Windows.Forms.Label
+$labelSearch.Text = "Search Package:"
+$labelSearch.AutoSize = $true
+$labelSearch.Location = New-Object System.Drawing.Point(20, 60) 
+$form.Controls.Add($labelSearch)
+
+$textBoxSearch = New-Object System.Windows.Forms.TextBox
+$textBoxSearch.Location = New-Object System.Drawing.Point(120, 60)
+$textBoxSearch.Size = New-Object System.Drawing.Size(250, 20)
+$form.Controls.Add($textBoxSearch)
+
+# Create a button for searching packages
+$buttonSearch = New-Object System.Windows.Forms.Button
+$buttonSearch.Text = "Search"
+$buttonSearch.Location = New-Object System.Drawing.Point(380, 60)
+$form.Controls.Add($buttonSearch)
+
+# Create a combo box to show search results
+$comboBoxPackages = New-Object System.Windows.Forms.ComboBox
+$comboBoxPackages.Location = New-Object System.Drawing.Point(120, 100)
+$comboBoxPackages.Size = New-Object System.Drawing.Size(250, 20)
+$form.Controls.Add($comboBoxPackages)
+
+# Add new category dropdown (for Intune category)
+$labelCategory = New-Object System.Windows.Forms.Label
+$labelCategory.Text = "Category:"
+$labelCategory.AutoSize = $true
+$labelCategory.Location = New-Object System.Drawing.Point(20, 220)
+$form.Controls.Add($labelCategory)
+
+$comboBoxCategory = New-Object System.Windows.Forms.ComboBox
+$comboBoxCategory.Location = New-Object System.Drawing.Point(120, 220)
+$comboBoxCategory.Size = New-Object System.Drawing.Size(250, 20)
+$comboBoxCategory.Items.AddRange(@("Business", "Computerverwaltung", "Datenverwaltung", "Entwicklung & Design", "Fotos und Medien", "Utilities", "Produktivität", "Zusammenarbeit und soziale Netzwerke"))
+$comboBoxCategory.SelectedIndex = 0  # Select the first item by default
+$form.Controls.Add($comboBoxCategory)
 
 
+# Create controls for package folder input
+$labelPackageFolder = New-Object System.Windows.Forms.Label
+$labelPackageFolder.Text = "Package Folder:"
+$labelPackageFolder.AutoSize = $true
+$labelPackageFolder.Location = New-Object System.Drawing.Point(20, 140)
+$form.Controls.Add($labelPackageFolder)
 
+$textBoxPackageFolder = New-Object System.Windows.Forms.TextBox
+$textBoxPackageFolder.Location = New-Object System.Drawing.Point(120, 140)
+$textBoxPackageFolder.Size = New-Object System.Drawing.Size(250, 20)
+$form.Controls.Add($textBoxPackageFolder)
+
+# Load the saved package folder from settings
+$textBoxPackageFolder.Text = Load-Settings
+
+# Create a button for selecting the package folder
+$buttonBrowseFolder = New-Object System.Windows.Forms.Button
+$buttonBrowseFolder.Text = "Browse"
+$buttonBrowseFolder.Location = New-Object System.Drawing.Point(380, 140)
+$buttonBrowseFolder.Add_Click({
+    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $textBoxPackageFolder.Text = $folderBrowser.SelectedPath
+    }
+})
+$form.Controls.Add($buttonBrowseFolder)
 
 # Create radio buttons for deployment type selection
 $labelDeploymentType = New-Object System.Windows.Forms.Label
 $labelDeploymentType.Text = "Deployment Type:"
 $labelDeploymentType.AutoSize = $true
-$labelDeploymentType.Location = New-Object System.Drawing.Point(20, 140)
+$labelDeploymentType.Location = New-Object System.Drawing.Point(20, 180)
 $form.Controls.Add($labelDeploymentType)
 
 $radioAvailable = New-Object System.Windows.Forms.RadioButton
 $radioAvailable.Text = "Available"
-$radioAvailable.Location = New-Object System.Drawing.Point(120, 140)
+$radioAvailable.Location = New-Object System.Drawing.Point(120, 180)
 $radioAvailable.Checked = $true  # Default selection
 $form.Controls.Add($radioAvailable)
 
 $radioRequired = New-Object System.Windows.Forms.RadioButton
 $radioRequired.Text = "Required"
-$radioRequired.Location = New-Object System.Drawing.Point(220, 140)
+$radioRequired.Location = New-Object System.Drawing.Point(220, 180)
 $form.Controls.Add($radioRequired)
 
 $radioNone = New-Object System.Windows.Forms.RadioButton
 $radioNone.Text = "None"
-$radioNone.Location = New-Object System.Drawing.Point(320, 140)
+$radioNone.Location = New-Object System.Drawing.Point(320, 180)
 $form.Controls.Add($radioNone)
 
 # Create a RichTextBox for console output
@@ -249,7 +258,7 @@ $richTextBoxConsoleOutput.ScrollBars = "Both"  # Enable both vertical and horizo
 $richTextBoxConsoleOutput.Font = New-Object System.Drawing.Font("Consolas", 10)  # Use monospaced font like PowerShell
 $richTextBoxConsoleOutput.BackColor = [System.Drawing.Color]::Black  # PowerShell-like background color
 $richTextBoxConsoleOutput.ForeColor = $colorWhite  # Default text color
-$richTextBoxConsoleOutput.Location = New-Object System.Drawing.Point(20, 270)
+$richTextBoxConsoleOutput.Location = New-Object System.Drawing.Point(20, 280)
 $richTextBoxConsoleOutput.Size = New-Object System.Drawing.Size(440, 250)
 $form.Controls.Add($richTextBoxConsoleOutput)
 
@@ -258,12 +267,23 @@ $form.Controls.Add($richTextBoxConsoleOutput)
 # Create a button to trigger the package and publish commands
 $buttonExecute = New-Object System.Windows.Forms.Button
 $buttonExecute.Text = "Publish"
-$buttonExecute.Location = New-Object System.Drawing.Point(120, 210)
+$buttonExecute.Location = New-Object System.Drawing.Point(120, 250)
 
 $buttonExecute.Add_Click({
     $selectedPackageText = $comboBoxPackages.SelectedItem
     $packageFolder = $textBoxPackageFolder.Text
     $selectedCategory = $comboBoxCategory.SelectedItem
+    $selectedUsername = $comboBoxUsername.Text
+
+
+    # Add the username to the list if it's not already present
+    if (-not $comboBoxUsername.Items.Contains($selectedUsername)) {
+        $comboBoxUsername.Items.Add($selectedUsername)
+    }
+
+    # Save the updated settings (usernames and package folder)
+    $usernamesList = @($comboBoxUsername.Items | ForEach-Object { $_ })
+    Save-Settings -usernames $usernamesList -lastPackageFolder $packageFolder
 
     if (-not $selectedPackageText) {
         [System.Windows.Forms.MessageBox]::Show("Please select a package.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
@@ -286,23 +306,17 @@ $buttonExecute.Add_Click({
         $deploymentOption = ""
     }
 
-    $textBoxConsoleOutput.AppendText("Packaging the app for Intune..." + [Environment]::NewLine)
-    $textBoxConsoleOutput.SelectionStart = $textBoxConsoleOutput.Text.Length
-    $textBoxConsoleOutput.ScrollToCaret()
+    Append-ConsoleOutput -text "Packaging the app for Intune..." -color $colorGreen
 
     # Call the Package-App function to package the app with error handling
     Package-App -packageId $packageId -packageFolder $packageFolder
 
-    $textBoxConsoleOutput.AppendText("Publishing the app to Intune..." + [Environment]::NewLine)
-    $textBoxConsoleOutput.SelectionStart = $textBoxConsoleOutput.Text.Length
-    $textBoxConsoleOutput.ScrollToCaret()
+    Append-ConsoleOutput -text "Publishing the app to Intune..." -color $colorGreen
 
     # Add category to the publish command
-    $publishCmd = "wintuner publish $packageId --package-folder `"$packageFolder`" $deploymentOption --category `"$selectedCategory`""
+    $publishCmd = "wintuner publish $packageId --package-folder `"$packageFolder`" $deploymentOption --category `"$selectedCategory`" --username `"$selectedUsername`""
     $publishOutput = Invoke-Expression $publishCmd
     Append-ConsoleOutput -text $publishOutput -color $colorWhite
-    $textBoxConsoleOutput.SelectionStart = $textBoxConsoleOutput.Text.Length
-    $textBoxConsoleOutput.ScrollToCaret()
 })
 
 $form.Controls.Add($buttonExecute)
@@ -316,16 +330,14 @@ $buttonSearch.Add_Click({
     }
 
     $comboBoxPackages.Items.Clear()
-    $textBoxConsoleOutput.AppendText("Searching for packages..." + [Environment]::NewLine)
-    $textBoxConsoleOutput.SelectionStart = $textBoxConsoleOutput.Text.Length
-    $textBoxConsoleOutput.ScrollToCaret()
+    Append-ConsoleOutput -text "Searching for packages..."
 
     try {
         # Calling the search function and getting the packages
         $packages = Search-WingetPackages -query $query
 
         if ($packages.Count -eq 0) {
-            Append-ConsoleOutput -text "No packages found." -color $colorWhite
+            Append-ConsoleOutput -text "No packages found." -color $colorRed
         } else {
             foreach ($package in $packages) {
                 # Add the package ID and name to the combo box
@@ -335,13 +347,24 @@ $buttonSearch.Add_Click({
             Append-ConsoleOutput -text "Found $($packages.Count) packages." -color $colorWhite
         }
     } catch {
-        $textBoxConsoleOutput.AppendText("Error searching packages: $_" + [Environment]::NewLine)
+        Append-ConsoleOutput -text "Error searching packages: $_"
     }
-
-    # Scroll to the last line
-    $textBoxConsoleOutput.SelectionStart = $textBoxConsoleOutput.Text.Length
-    $textBoxConsoleOutput.ScrollToCaret()
 })
+
+# Load saved settings
+$settings = Load-Settings
+
+# Populate ComboBox for usernames
+$comboBoxUsername.Items.AddRange($settings.Usernames)
+if ($comboBoxUsername.Items.Count -gt 0) {
+    $comboBoxUsername.SelectedIndex = 0  # Select the most recent username by default
+}
+
+# Set the last used package folder if available
+if ($settings.LastPackageFolder) {
+    $textBoxPackageFolder.Text = $settings.LastPackageFolder
+}
+
 
 # Run the form
 [void] $form.ShowDialog()

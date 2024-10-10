@@ -46,26 +46,55 @@ function Select-FirstSearchResult {
     }
 }
 
-# Function to search Winget packages using winget.run API
 function Search-WingetPackages {
-    param ($query)
-    $url = "https://api.winget.run/v2/packages?query=$query"
-    $response = Invoke-WebRequest -Uri $url -Method Get
-    $jsonContent = $response.Content
+    param (
+        [string]$query,
+        [int]$take = 50  # Anzahl der Ergebnisse pro Seite, Standardwert 50
+    )
 
-    # Replace one of the duplicate keys in the JSON string
-    $jsonContent = $jsonContent -replace '"CreatedAt"', '"CreatedAt_API"'
-    $jsonContent = $jsonContent -replace '"UpdatedAt"', '"UpdatedAt_API"'
+    $allPackages = @()  # Array zum Speichern aller gefundenen Pakete
+    $urlBase = "https://api.winget.run/v2/packages?query=$query&take=$take"
+    $page = 1
+    $totalPackages = 0
+    $retrievedPackages = 0
 
-    # Parse the modified JSON content
-    $json = $jsonContent | ConvertFrom-Json
+    do {
+        # URL für die aktuelle Seite erstellen
+        $skip = ($page - 1) * $take
+        $url = "$urlBase&skip=$skip"
 
-    if ($json -and $json.Packages) {
-        return $json.Packages  # Return the list of packages
-    } else {
-        return @()  # Return an empty array if no packages found
-    }
+        # Anfrage an die API stellen
+        $response = Invoke-WebRequest -Uri $url -Method Get
+        $jsonContent = $response.Content
+
+        # Korrigiere die doppelten Schlüssel
+        $jsonContent = $jsonContent -replace '"CreatedAt"', '"CreatedAt_API"'
+        $jsonContent = $jsonContent -replace '"UpdatedAt"', '"UpdatedAt_API"'
+
+        # Konvertiere den JSON-Inhalt
+        $json = $jsonContent | ConvertFrom-Json
+
+        if ($json -and $json.Packages) {
+            # Füge die gefundenen Pakete dem Array hinzu
+            $allPackages += $json.Packages
+            $retrievedPackages += $json.Packages.Count
+
+            # Gesamtanzahl der Pakete, wenn noch nicht festgelegt
+            if ($totalPackages -eq 0) {
+                $totalPackages = $json.Total
+            }
+
+            # Erhöhe die Seitennummer
+            $page++
+        } else {
+            break  # Beende die Schleife, wenn keine Pakete gefunden werden
+        }
+
+    } while ($retrievedPackages -lt $totalPackages)
+
+    return $allPackages  # Gib alle gesammelten Pakete zurück
 }
+
 
 # Function to handle the package command and retry with x86 architecture if needed
 function Package-App {
